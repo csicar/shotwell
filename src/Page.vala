@@ -1992,6 +1992,36 @@ public abstract class SinglePhotoPage : Page {
     private bool has_saved_zoom_state = false;
     private uint32 last_nav_key = 0;
     
+    private class PhotoSidePane : Gtk.Box {
+        private Properties properties = new BasicProperties();
+        private SinglePhotoPage page;
+
+        public PhotoSidePane(SinglePhotoPage page) {
+            this.page = page;
+            orientation = Gtk.Orientation.VERTICAL;
+            spacing = 6;
+
+            Gtk.Stack stack = new Gtk.Stack();
+            stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT);
+            stack.set_transition_duration(1000);
+
+            stack.add_titled(properties, "properties", "Basic Properties");
+
+            stack.add_titled(new Gtk.Label("asd"), "adjust", "Adjust");
+
+            Gtk.StackSwitcher switcher = new Gtk.StackSwitcher();
+            switcher.halign = Gtk.Align.CENTER;
+            switcher.set_stack(stack);
+
+            pack_start(switcher, false, true, 6);
+            pack_start(stack, true, true, 0);
+        }
+
+        public void on_update_properties() {
+            properties.update_properties(page);
+        }
+    }
+
     public SinglePhotoPage(string page_name, bool scale_up_to_viewport) {
         base(page_name);
         
@@ -2009,10 +2039,23 @@ public abstract class SinglePhotoPage : Page {
         viewport.set_shadow_type(Gtk.ShadowType.NONE);
         viewport.set_border_width(0);
         viewport.add(canvas);
-        
-        add(viewport);
 
-        canvas.add_events(Gdk.EventMask.EXPOSURE_MASK | Gdk.EventMask.STRUCTURE_MASK 
+        Gtk.Paned pane = new Gtk.Paned (Gtk.Orientation.HORIZONTAL);
+        add(pane);
+        
+        PhotoSidePane side_pane = new PhotoSidePane(this);
+
+        ViewCollection view = this.get_view();
+        view.items_state_changed.connect(side_pane.on_update_properties);
+        view.items_altered.connect(side_pane.on_update_properties);
+        view.contents_altered.connect(side_pane.on_update_properties);
+        view.items_visibility_changed.connect(side_pane.on_update_properties);
+
+        pane.pack1(viewport, true, false);
+        pane.pack2(side_pane, true, true);
+        pane.set_position(1000);
+
+        canvas.add_events(Gdk.EventMask.EXPOSURE_MASK | Gdk.EventMask.STRUCTURE_MASK
             | Gdk.EventMask.SUBSTRUCTURE_MASK);
         
         viewport.size_allocate.connect(on_viewport_resize);
